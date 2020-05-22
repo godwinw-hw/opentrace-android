@@ -581,14 +581,27 @@ class OnboardingActivity : FragmentActivity(),
         onboardingActivityLoadingProgressBarFrame.visibility = View.VISIBLE
         speedUp = false
         resendingCode = true
-        PhoneAuthProvider.getInstance().verifyPhoneNumber(
-            phoneNumber,        // Phone number to verify
-            60,                 // Timeout duration
-            TimeUnit.SECONDS,   // Unit of timeout
-            this,               // Activity (for callback binding)
-            phoneNumberVerificationCallbacks,         // OnVerificationStateChangedCallbacks
-            resendToken
-        )             // ForceResendingToken from callbacks
+
+        if (isGoogleServicesAvailable()) {
+            PhoneAuthProvider.getInstance().verifyPhoneNumber(
+                phoneNumber,        // Phone number to verify
+                60,                 // Timeout duration
+                TimeUnit.SECONDS,   // Unit of timeout
+                this,               // Activity (for callback binding)
+                phoneNumberVerificationCallbacks,         // OnVerificationStateChangedCallbacks
+                resendToken
+            )             // ForceResendingToken from callbacks
+        } else {
+            // google services not available, resend code for huawei mobile services
+            val settings = VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
+                .sendInterval(60) //interval or code timeout
+                .build()
+
+            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(phoneNumber.substring(1,3),
+                phoneNumber.substring(3),
+                settings,
+                hwCodeCallback)
+        }
     }
 
     fun updatePhoneNumber(num: String) {
