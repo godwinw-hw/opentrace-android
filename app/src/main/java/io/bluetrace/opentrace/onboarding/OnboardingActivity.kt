@@ -32,6 +32,8 @@ import com.google.firebase.auth.*
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableResult
 import com.huawei.agconnect.auth.AGCAuthException
+import com.huawei.agconnect.auth.AGConnectAuth
+import com.huawei.agconnect.auth.AGConnectAuthCredential
 import com.huawei.agconnect.auth.VerifyCodeSettings
 import kotlinx.android.synthetic.main.activity_onboarding.*
 import pub.devrel.easypermissions.AfterPermissionGranted
@@ -68,6 +70,7 @@ class OnboardingActivity : FragmentActivity(),
     private var credential: PhoneAuthCredential by Delegates.notNull()
     private var verificationId: String by Delegates.notNull()
     private var resendToken: PhoneAuthProvider.ForceResendingToken by Delegates.notNull()
+    private var phoneNumber: String = ""
     private val phoneNumberVerificationCallbacks =
         object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
 
@@ -570,11 +573,48 @@ class OnboardingActivity : FragmentActivity(),
         }
         onboardingActivityLoadingProgressBarFrame.visibility = View.VISIBLE
 
-        credential = PhoneAuthProvider.getCredential(
-            verificationId,
-            otp
-        )
-        signInWithPhoneAuthCredential(credential)
+        if (isGoogleServicesAvailable()) {
+            credential = PhoneAuthProvider.getCredential(
+                verificationId,
+                otp
+            )
+            signInWithPhoneAuthCredential(credential)
+        } else {
+            // google services available, proceed with huawei credentials
+            val credential = com.huawei.agconnect.auth.PhoneAuthProvider.credentialWithVerifyCode(phoneNumber.substring(1, 3), // country code
+                phoneNumber.substring(3), // phone number
+                "", // password (optional)
+                otp) // sms code entered
+
+            signInWithHwPhoneAuthCredential(credential)
+
+        }
+    }
+
+    private fun signInWithHwPhoneAuthCredential(credential: AGConnectAuthCredential) {
+        AGConnectAuth.getInstance().signIn(credential).addOnSuccessListener {
+            // user successfully signed-in using phone number
+            CentralLog.d(TAG, "signInWithCredential:success")
+
+            if (BluetoothMonitoringService.broadcastMessage == null || TempIDManager.needToUpdate(
+                    applicationContext
+                )
+            ) {
+                getTemporaryID()
+            }
+        }.addOnFailureListener {
+            // something went wrong during sign in
+            // Sign in failed, display a message and update the UI
+            CentralLog.d(TAG, "signInWithCredential:failure", it)
+            if (it is AGCAuthException) {
+                if (it.code == 203818129) {
+                    // The verification code entered was invalid
+                    onboardingActivityLoadingProgressBarFrame.visibility = View.GONE
+                    updateOTPError(getString(R.string.invalid_otp))
+                }
+            }
+            onboardingActivityLoadingProgressBarFrame.visibility = View.GONE
+        }
     }
 
     fun resendCode(phoneNumber: String) {
@@ -605,6 +645,7 @@ class OnboardingActivity : FragmentActivity(),
     }
 
     fun updatePhoneNumber(num: String) {
+        phoneNumber = num
         val onboardingFragment: OnboardingFragmentInterface = pagerAdapter!!.getItem(1)
         onboardingFragment.onUpdatePhoneNumber(num)
     }
@@ -651,6 +692,7 @@ class OnboardingActivity : FragmentActivity(),
 
     // check if google play is available on the device.
     private fun isGoogleServicesAvailable(): Boolean {
+        return false
         return (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this@OnboardingActivity) == ConnectionResult.SUCCESS)
     }
 
