@@ -692,7 +692,6 @@ class OnboardingActivity : FragmentActivity(),
 
     // check if google play is available on the device.
     private fun isGoogleServicesAvailable(): Boolean {
-        return false
         return (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this@OnboardingActivity) == ConnectionResult.SUCCESS)
     }
 
