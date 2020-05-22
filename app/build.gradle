@@ -8,6 +8,9 @@ apply plugin: 'com.google.firebase.appdistribution'
 apply plugin: "com.cookpad.android.plugin.license-tools"
 
 apply plugin: 'com.jaredsburrows.license'
+
+// huawei plugin
+apply plugin: 'com.huawei.agconnect'
 buildscript {
     repositories {
         google()
@@ -86,7 +89,6 @@ android {
             String ssid = STAGING_SERVICE_UUID
             versionNameSuffix "-debug-${getGitHash()}-${ssid.substring(ssid.length() - 5, ssid.length() - 1)}"
             resValue "string", "app_name", "OpenTrace Debug"
-            applicationIdSuffix "stg"
         }
 
         release {
@@ -188,5 +190,9 @@ dependencies {
 
     //Lottie
     implementation 'com.airbnb.android:lottie:3.4.0'
+    
+    //huawei auth
+    implementation 'com.huawei.agconnect:agconnect-core:1.3.1.300'
+    implementation 'com.huawei.agconnect:agconnect-auth:1.3.1.300'
 
 }
