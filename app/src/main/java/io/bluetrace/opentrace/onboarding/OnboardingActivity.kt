@@ -16,18 +16,23 @@ import android.os.Handler
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.TextUtils
+import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentStatePagerAdapter
 import androidx.viewpager.widget.ViewPager
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.tasks.Task
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.HttpsCallableResult
+import com.huawei.agconnect.auth.AGCAuthException
+import com.huawei.agconnect.auth.VerifyCodeSettings
 import kotlinx.android.synthetic.main.activity_onboarding.*
 import pub.devrel.easypermissions.AfterPermissionGranted
 import pub.devrel.easypermissions.EasyPermissions
@@ -38,6 +43,7 @@ import io.bluetrace.opentrace.Utils
 import io.bluetrace.opentrace.idmanager.TempIDManager
 import io.bluetrace.opentrace.logging.CentralLog
 import io.bluetrace.opentrace.services.BluetoothMonitoringService
+import java.lang.Exception
 import java.util.concurrent.TimeUnit
 import kotlin.properties.Delegates
 
@@ -114,6 +120,40 @@ class OnboardingActivity : FragmentActivity(),
                 }
 
             }
+        }
+
+    // Huawei verification code sending callback
+    private val hwCodeCallback =
+        object: VerifyCodeSettings.OnVerifyCodeCallBack {
+            override fun onVerifyFailure(ex: Exception?) {
+                ex?.let {
+                    if (it is AGCAuthException) {
+                        if (it.code == 203817224) {
+                            CentralLog.d(TAG, "AGCAuthException", ex)
+//                    alertDialog(getString(R.string.verification_failed))
+                            updatePhoneNumberError(getString(R.string.invalid_number))
+                        } else if (it.code == 203818048) {
+                            CentralLog.d(TAG, "AGCAuthException", ex)
+                            alertDialog(getString(R.string.too_many_requests))
+                        }
+                    }
+                }
+
+                enableFragmentbutton()
+
+                CentralLog.d(TAG, "On Verification failure: ${ex?.message}")
+                onboardingActivityLoadingProgressBarFrame.visibility = View.GONE
+            }
+
+            override fun onVerifySuccess(p0: String?, p1: String?) {
+                CentralLog.d(TAG, "HW - onVerifySuccess")
+                if (resendingCode) {
+                    onboardingActivityLoadingProgressBarFrame.visibility = View.GONE
+                } else {
+                    navigateToNextPage()
+                }
+            }
+
         }
 
     private fun enableFragmentbutton() {
@@ -497,17 +537,30 @@ class OnboardingActivity : FragmentActivity(),
 
     fun requestForOTP(phoneNumber: String) {
         onboardingActivityLoadingProgressBarFrame.visibility = View.VISIBLE
-        speedUp = false
-        resendingCode = false
-        PhoneAuthProvider
-            .getInstance()
-            .verifyPhoneNumber(
-                phoneNumber,
-                60,
-                TimeUnit.SECONDS, // Unit of timeout
-                this, // Activity (for callback binding)
-                phoneNumberVerificationCallbacks
-            )
+
+        if (isGoogleServicesAvailable()) {
+            speedUp = false
+            resendingCode = false
+            PhoneAuthProvider
+                .getInstance()
+                .verifyPhoneNumber(
+                    phoneNumber,
+                    60,
+                    TimeUnit.SECONDS, // Unit of timeout
+                    this, // Activity (for callback binding)
+                    phoneNumberVerificationCallbacks
+                )
+        } else {
+            // google services not available, use Huawei Mobile Services phone auth instead
+            val settings = VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
+                .sendInterval(60) //interval or code timeout
+                .build()
+
+            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(phoneNumber.substring(1,3),
+                phoneNumber.substring(3),
+                settings,
+                hwCodeCallback)
+        }
     }
 
     fun validateOTP(otp: String) {
@@ -581,6 +634,11 @@ class OnboardingActivity : FragmentActivity(),
             }
         }
 
+    }
+
+    // check if google play is available on the device.
+    private fun isGoogleServicesAvailable(): Boolean {
+        return (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this@OnboardingActivity) == ConnectionResult.SUCCESS)
     }
 
 }
