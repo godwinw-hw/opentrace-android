@@ -10,6 +10,10 @@ import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.anotherdev.firebase.auth.FirebaseAuthRest
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -106,7 +110,12 @@ class PeekActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        val uid = FirebaseAuth.getInstance().currentUser!!.uid
+        var uid = ""
+        if (isGoogleServicesAvailable()) {
+            uid = FirebaseAuth.getInstance().currentUser!!.uid
+        } else {
+            uid = FirebaseAuthRest.getInstance(FirebaseApp.getInstance()).currentUser!!.uid!!
+        }
         val serviceUUID = BuildConfig.BLE_SSID
         info.text =
             "UID: ${uid.substring(uid.length - 4)}   SSID: ${serviceUUID.substring(serviceUUID.length - 4)}"
@@ -141,4 +150,8 @@ class PeekActivity : AppCompatActivity() {
         Utils.stopBluetoothMonitoringService(this)
     }
 
+    private fun isGoogleServicesAvailable(): Boolean {
+        return (GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(this@PeekActivity) == ConnectionResult.SUCCESS)
+    }
 }

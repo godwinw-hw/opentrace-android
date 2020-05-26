@@ -23,9 +23,11 @@ import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentStatePagerAdapter
 import androidx.viewpager.widget.ViewPager
+import com.anotherdev.firebase.auth.FirebaseAuthRest
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.tasks.Task
+import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
@@ -127,7 +129,7 @@ class OnboardingActivity : FragmentActivity(),
 
     // Huawei verification code sending callback
     private val hwCodeCallback =
-        object: VerifyCodeSettings.OnVerifyCodeCallBack {
+        object : VerifyCodeSettings.OnVerifyCodeCallBack {
             override fun onVerifyFailure(ex: Exception?) {
                 ex?.let {
                     if (it is AGCAuthException) {
@@ -550,19 +552,22 @@ class OnboardingActivity : FragmentActivity(),
                     phoneNumber,
                     60,
                     TimeUnit.SECONDS, // Unit of timeout
-                    this, // Activity (for callback binding)
+                    this@OnboardingActivity, // Activity (for callback binding)
                     phoneNumberVerificationCallbacks
                 )
         } else {
             // google services not available, use Huawei Mobile Services phone auth instead
-            val settings = VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
-                .sendInterval(60) //interval or code timeout
-                .build()
+            val settings =
+                VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
+                    .sendInterval(60) //interval or code timeout
+                    .build()
 
-            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(phoneNumber.substring(1,3),
+            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(
+                phoneNumber.substring(1, 3),
                 phoneNumber.substring(3),
                 settings,
-                hwCodeCallback)
+                hwCodeCallback
+            )
         }
     }
 
@@ -581,10 +586,12 @@ class OnboardingActivity : FragmentActivity(),
             signInWithPhoneAuthCredential(credential)
         } else {
             // google services available, proceed with huawei credentials
-            val credential = com.huawei.agconnect.auth.PhoneAuthProvider.credentialWithVerifyCode(phoneNumber.substring(1, 3), // country code
+            val credential = com.huawei.agconnect.auth.PhoneAuthProvider.credentialWithVerifyCode(
+                phoneNumber.substring(1, 3), // country code
                 phoneNumber.substring(3), // phone number
                 "", // password (optional)
-                otp) // sms code entered
+                otp
+            ) // sms code entered
 
             signInWithHwPhoneAuthCredential(credential)
 
@@ -596,12 +603,7 @@ class OnboardingActivity : FragmentActivity(),
             // user successfully signed-in using phone number
             CentralLog.d(TAG, "signInWithCredential:success")
 
-            if (BluetoothMonitoringService.broadcastMessage == null || TempIDManager.needToUpdate(
-                    applicationContext
-                )
-            ) {
-                getTemporaryID()
-            }
+            getCustomToken(it.user.uid)
         }.addOnFailureListener {
             // something went wrong during sign in
             // Sign in failed, display a message and update the UI
@@ -633,14 +635,17 @@ class OnboardingActivity : FragmentActivity(),
             )             // ForceResendingToken from callbacks
         } else {
             // google services not available, resend code for huawei mobile services
-            val settings = VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
-                .sendInterval(60) //interval or code timeout
-                .build()
+            val settings =
+                VerifyCodeSettings.newBuilder().action(VerifyCodeSettings.ACTION_REGISTER_LOGIN)
+                    .sendInterval(60) //interval or code timeout
+                    .build()
 
-            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(phoneNumber.substring(1,3),
+            com.huawei.agconnect.auth.PhoneAuthProvider.verifyPhoneCode(
+                phoneNumber.substring(1, 3),
                 phoneNumber.substring(3),
                 settings,
-                hwCodeCallback)
+                hwCodeCallback
+            )
         }
     }
 
@@ -692,7 +697,39 @@ class OnboardingActivity : FragmentActivity(),
 
     // check if google play is available on the device.
     private fun isGoogleServicesAvailable(): Boolean {
-        return (GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this@OnboardingActivity) == ConnectionResult.SUCCESS)
+        return (GoogleApiAvailability.getInstance()
+            .isGooglePlayServicesAvailable(this@OnboardingActivity) == ConnectionResult.SUCCESS)
+    }
+
+    // cloud function to get custom token for the specified huawei uid
+    private fun getCustomToken(uid: String) {
+        val data = hashMapOf(
+            "uid" to uid
+        )
+
+        functions.getHttpsCallable("getCustomToken")
+            .call(data)
+            .addOnSuccessListener {
+                val result = it.data as String
+                Log.d("test", result)
+
+                FirebaseAuthRest.getInstance(FirebaseApp.getInstance()).signInWithCustomToken(result).subscribe({
+                    Log.d("test", it.toString())
+                    if (BluetoothMonitoringService.broadcastMessage == null || TempIDManager.needToUpdate(
+                            applicationContext
+                        )
+                    ) {
+                        getTemporaryID()
+                    }
+                }, {
+                    it.printStackTrace()
+                })
+
+
+            }
+            .addOnFailureListener {
+                it.printStackTrace()
+            }
     }
 
 }
