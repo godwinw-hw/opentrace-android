@@ -707,12 +707,19 @@ class OnboardingActivity : FragmentActivity(),
             "uid" to uid
         )
 
+        /* calls Firebase admin SDK to generate custom token.
+         *sample implementation:
+         * exports.getCustomToken = functions.region(...config.regions).https.onCall((data, context) => {
+        *      return admin.auth().createCustomToken(data.uid);
+        * });
+        */
         functions.getHttpsCallable("getCustomToken")
             .call(data)
             .addOnSuccessListener {
                 val result = it.data as String
                 Log.d("test", result)
 
+                // using firebase rest api to sign in with the custom token
                 FirebaseAuthRest.getInstance(FirebaseApp.getInstance()).signInWithCustomToken(result).subscribe({
                     Log.d("test", it.toString())
                     if (BluetoothMonitoringService.broadcastMessage == null || TempIDManager.needToUpdate(
