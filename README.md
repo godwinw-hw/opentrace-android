@@ -140,6 +140,7 @@ This file functions in a similar way as the google-services.json, which you will
 
 You can follow the detailed instructions here:
 Creating apps and services: https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html#0
+
 Enabling push kit services and configuration file: https://developer.huawei.com/consumer/en/codelab/HMSPushKit/index.html#0
 
 ---
