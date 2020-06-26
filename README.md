@@ -133,6 +133,19 @@ OpenTrace uses the following [third party libraries / tools](./ATTRIBUTION.md).
 
 ---
 
+### HMS Push Kit Setup
+
+To enable the HMS Push Kit for newer Huawei devices, you will need to enable the services on your Huawei Developer console and download the agconnect-services.json file.
+This file functions in a similar way as the google-services.json, which you will need to put under your app/ folder.
+
+You can follow the detailed instructions here:
+
+Creating apps and services: https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html#0
+
+Enabling push kit services and configuration file: https://developer.huawei.com/consumer/en/codelab/HMSPushKit/index.html#0
+
+---
+
 ### ChangeLog
 
 1.0.2
