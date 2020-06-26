@@ -79,6 +79,16 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".services.HMSPushService"
+            android:exported="false">
+            <intent-filter>
+                <intent-filter>
+                    <action android:name="com.huawei.push.action.MESSAGING_EVENT" />
+                </intent-filter>
+            </intent-filter>
+        </service>
+
         <!-- Set custom default icon. This is used when no icon is set for incoming notification messages.
      See README(https://goo.gl/l4GJaQ) for more. -->
         <meta-data
